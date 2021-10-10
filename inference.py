@@ -74,8 +74,13 @@ class DiscreteDistribution(dict):
         >>> empty
         {}
         """
-        "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        total = self.total()
+        if total == 0:
+            return None
+        # go through our values for every key and normalize our dictionary
+        for key in self.keys():
+            # normalizing = value / sum of all values
+            self[key] = self[key] / total
 
     def sample(self):
         """
@@ -169,7 +174,20 @@ class InferenceModule:
         Return the probability P(noisyDistance | pacmanPosition, ghostPosition).
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # if the ghost position is the jail position then the obs is None
+        if ghostPosition == jailPosition:
+            # if the obs is none, then probability is 1
+            if noisyDistance is None:
+                return 1
+            # if the distance reasing is not None, ghost in jail w prob 0
+            elif noisyDistance is not None:
+                return 0
+        # if no reading and ghost isnt in jail, return prob 0
+        if noisyDistance is None:
+            return 0
+        # calculate noisyDistance | pacman, ghost positions
+        noisyGivenTrue = busters.getObservationProbability(noisyDistance, manhattanDistance(pacmanPosition, ghostPosition))
+        return noisyGivenTrue
 
     def setGhostPosition(self, gameState, ghostPosition, index):
         """
@@ -276,8 +294,12 @@ class ExactInference(InferenceModule):
         current position. However, this is not a problem, as Pacman's current
         position is known.
         """
-        "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # update the belief at every mapPos after getting a sensor reading
+        # iteration over self.allPositions
+        # Beliefs represent prob a ghost is at a location, stored as DiscreteDictribution.beliefs
+        beliefs = self.getBeliefDistribution()
+        for pos in self.allPositions:
+            self.getObservationProb(gameState.getNoisyGhostDistances, gameState.getPacmanPosition(), gameState.getGhostPosition(), self.getJailPosition())
 
         self.beliefs.normalize()
 
