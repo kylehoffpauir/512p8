@@ -103,9 +103,13 @@ class DiscreteDistribution(dict):
         >>> round(samples.count('d') * 1.0/N, 1)
         0.0
         """
-        "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-
+        total = self.total()
+        value = random.uniform(0, total)
+        for key in self.keys():
+            value -= self[key]
+            if value <= 0:
+                return key
+        return None
 
 class InferenceModule:
     """
@@ -173,13 +177,19 @@ class InferenceModule:
         """
         Return the probability P(noisyDistance | pacmanPosition, ghostPosition).
         """
-        "*** YOUR CODE HERE ***"
-        # if the ghost position is the jail position then the obs is None
+
+        """
+        if the ghost’s position is the jail position, 
+        then the observation is None with probability 1, 
+        and everything else with probability 0. 
+        Conversely, if the distance reading is not None, 
+        then the ghost is in jail with probability 0. 
+        """
         if ghostPosition == jailPosition:
-            # if the obs is none, then probability is 1
+            # if ghost in jail and the distance is none, then ghost is in jail w prob 1
             if noisyDistance is None:
                 return 1
-            # if the distance reasing is not None, ghost in jail w prob 0
+            # if ghost in jail and the distance reading is none, then ghost is in jail w prob 1
             elif noisyDistance is not None:
                 return 0
         # if no reading and ghost isnt in jail, return prob 0
@@ -295,12 +305,10 @@ class ExactInference(InferenceModule):
         position is known.
         """
         # update the belief at every mapPos after getting a sensor reading
-        # iteration over self.allPositions
-        # Beliefs represent prob a ghost is at a location, stored as DiscreteDictribution.beliefs
-        beliefs = self.getBeliefDistribution()
+        # beliefs dict -- key: position   value: prob ghost @ pos
         for pos in self.allPositions:
-            self.getObservationProb(gameState.getNoisyGhostDistances, gameState.getPacmanPosition(), gameState.getGhostPosition(), self.getJailPosition())
-
+            prob = self.getObservationProb(observation, gameState.getPacmanPosition(), pos, self.getJailPosition())
+            self.beliefs[pos] *= prob
         self.beliefs.normalize()
 
     def elapseTime(self, gameState):
@@ -312,8 +320,19 @@ class ExactInference(InferenceModule):
         Pacman's current position. However, this is not a problem, as Pacman's
         current position is known.
         """
-        "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # predict
+        # make an empty distribution to fill
+        predictions = DiscreteDistribution()
+        # go through every ghost position
+        for oldPos in self.allPositions:
+            # get the action distribution of ghost @ pos
+            newPosDist = self.getPositionDistribution(gameState, oldPos)
+            for pos in newPosDist.keys():
+                # newPosDict[pos] is the prob that ghost @ pos @ t+1
+                # make new beliefs based on the oldBelief * prob of pos@t+1
+                newBelief = self.beliefs[oldPos] * newPosDist[pos]
+                predictions[pos] += newBelief
+        self.beliefs = predictions.copy()
 
     def getBeliefDistribution(self):
         return self.beliefs
@@ -340,7 +359,14 @@ class ParticleFilter(InferenceModule):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        particlesPerTile = self.numParticles // len(self.legalPositions)
+        tempParticles = self.numParticles
+        for pos in self.legalPositions:
+            if tempParticles < 0:
+                break
+            for ppt in range(particlesPerTile):
+                self.particles.append(pos)
+                tempParticles -= 1
 
     def observeUpdate(self, observation, gameState):
         """
@@ -355,7 +381,20 @@ class ParticleFilter(InferenceModule):
         the DiscreteDistribution may be useful.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        update = DiscreteDistribution()
+        for pos in self.particles:
+            # calculate the probabilty of every particle and add it to our updated dist
+            prob = self.getObservationProb(observation, gameState.getPacmanPosition(), pos, self.getJailPosition())
+            update[pos] += prob
+        # special case -- if all particles get 0 weigth then initializeUniformly
+        if update.total() == 0:
+            self.initializeUniformly(gameState)
+        # normalize our update distribution and modify beliefs
+        else:
+            self.beliefs = update.normalize()
+            # resample every particle ( with replacement ) and change the particles we store to resampled ones
+            for i in range(len(self.particles)):
+                self.particles[i] = update.sample()
 
     def elapseTime(self, gameState):
         """
@@ -374,7 +413,11 @@ class ParticleFilter(InferenceModule):
         This function should return a normalized distribution.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        beliefDist = DiscreteDistribution()
+        for particle in self.particles:
+            beliefDist[particle] += 1
+        beliefDist.normalize()
+        return beliefDist
 
 
 class JointParticleFilter(ParticleFilter):

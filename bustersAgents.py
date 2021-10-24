@@ -10,7 +10,7 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
+import math
 
 import util
 from game import Agent
@@ -143,4 +143,26 @@ class GreedyBustersAgent(BustersAgent):
         livingGhostPositionDistributions = \
             [beliefs for i, beliefs in enumerate(self.ghostBeliefs)
              if livingGhosts[i+1]]
-        "*** YOUR CODE HERE ***"
+        # agent finds the most likely position of each remaining uncaptured ghost
+        # choose the action that minimizes the distance to the closest ghost
+        # find distance w: self.distancer.getDistance(pos1, pos2)
+
+        # for each probability @ pos -- find most likely pos for each ghost
+        ghostPositions = []
+        for distribution in livingGhostPositionDistributions:
+            ghostPositions.append(distribution.argMax())
+
+        # for each ghost -- find closest ghost
+        closestGhost = pacmanPosition, math.inf
+        for pos in ghostPositions:
+            distance = self.distancer.getDistance(pos, pacmanPosition)
+            if distance < closestGhost[1]:
+                closestGhost = pos, distance
+
+        # for each action we could take -- find one to bring us to closest
+        bestAction = None, math.inf
+        for action in legal:
+            succDistance = self.distancer.getDistance(Actions.getSuccessor(pacmanPosition, action), closestGhost[0])
+            if succDistance < bestAction[1]:
+                bestAction = action, succDistance
+        return bestAction[0]
