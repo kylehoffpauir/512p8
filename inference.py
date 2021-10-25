@@ -382,11 +382,12 @@ class ParticleFilter(InferenceModule):
         """
         "*** YOUR CODE HERE ***"
         update = DiscreteDistribution()
-        for pos in self.particles:
+        for particlePos in self.particles:
             # calculate the probabilty of every particle and add it to our updated dist
-            prob = self.getObservationProb(observation, gameState.getPacmanPosition(), pos, self.getJailPosition())
-            update[pos] += prob
-        # special case -- if all particles get 0 weigth then initializeUniformly
+            prob = self.getObservationProb(observation, gameState.getPacmanPosition(), particlePos, self.getJailPosition())
+            # using += will store sum of repeated particle weights in the distribution
+            update[particlePos] += prob
+        # special case -- if all particles get 0 weight then initializeUniformly
         if update.total() == 0:
             self.initializeUniformly(gameState)
         # normalize our update distribution and modify beliefs
@@ -402,7 +403,13 @@ class ParticleFilter(InferenceModule):
         gameState.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        timeAdvance = []
+        # for every particle in the list, add as sample from the future
+        for p in self.particles:
+            newPosDist = self.getPositionDistribution(gameState, p)
+            timeAdvance.append(newPosDist.sample())
+        self.particles = timeAdvance
+
 
     def getBeliefDistribution(self):
         """
@@ -445,7 +452,17 @@ class JointParticleFilter(ParticleFilter):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        permutations = itertools.product(self.legalPositions, repeat = self.numGhosts)
+        random.shuffle(permutations)
+        # each particle is now a tuple of sampled ghost positions
+        particlesPerTile = self.numParticles // len(self.legalPositions)
+        tempParticles = self.numParticles
+        for i in len(permutations):
+            if tempParticles < 0:
+                break
+            for ppt in range(particlesPerTile):
+                self.particles.append(permutations[i])
+                tempParticles -= 1
 
     def addGhostAgent(self, agent):
         """
