@@ -359,11 +359,17 @@ class ParticleFilter(InferenceModule):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
+        # in order to evenly distribute particles over the tiles, do an int division
+        # to find how many particles should be on each tile
         particlesPerTile = self.numParticles // len(self.legalPositions)
+        # counter for total number of particles to add
         tempParticles = self.numParticles
+        # go through every position
         for pos in self.legalPositions:
+            # if we are out of particles, stop adding
             if tempParticles < 0:
                 break
+            # evenly distribute particles onto each tile and decrement counter
             for ppt in range(particlesPerTile):
                 self.particles.append(pos)
                 tempParticles -= 1
@@ -381,6 +387,7 @@ class ParticleFilter(InferenceModule):
         the DiscreteDistribution may be useful.
         """
         "*** YOUR CODE HERE ***"
+        # create a new distribution to store our updated beliefs
         update = DiscreteDistribution()
         for particlePos in self.particles:
             # calculate the probabilty of every particle and add it to our updated dist
@@ -404,10 +411,13 @@ class ParticleFilter(InferenceModule):
         """
         "*** YOUR CODE HERE ***"
         timeAdvance = []
-        # for every particle in the list, add as sample from the future
+        # for every particle in our list, add as sample from the future
         for p in self.particles:
+            # get future positions
             newPosDist = self.getPositionDistribution(gameState, p)
+            # resample from the future
             timeAdvance.append(newPosDist.sample())
+        # set our particles to the future list
         self.particles = timeAdvance
 
 
@@ -452,13 +462,16 @@ class JointParticleFilter(ParticleFilter):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
+        # create the product of all legal positions for every ghost
         permutations = list(itertools.product(self.legalPositions, repeat = self.numGhosts))
+        # randomize the order
         random.shuffle(permutations)
         # each particle is now a tuple of sampled ghost positions
         i = self.numParticles
         while i > 0:
-            for ppt in permutations:
-                self.particles.append(ppt)
+            # for the every particle, walk through our permutations and add
+            for particle in permutations:
+                self.particles.append(particle)
                 i -= 1
 
     def addGhostAgent(self, agent):
@@ -492,9 +505,12 @@ class JointParticleFilter(ParticleFilter):
         the DiscreteDistribution may be useful.
         """
         "*** YOUR CODE HERE ***"
+        # create a new distribution to store our updates
         update = DiscreteDistribution()
         for particlePos in self.particles:
             # calculate the probabilty of every particle and add it to our updated dist
+            # for our joint particle filter, we need to do the observation prob for every ghost
+            # start prob at 1 (because math) then multiply each observation prob
             prob = 1
             for i in range(self.numGhosts):
                 prob *= self.getObservationProb(observation[i], gameState.getPacmanPosition(), particlePos[i] , self.getJailPosition(i))
@@ -522,8 +538,10 @@ class JointParticleFilter(ParticleFilter):
 
             # now loop through and update each entry in newParticle...
             "*** YOUR CODE HERE ***"
+            # for every ghost, calculate the future and sample from it
             for i in range(self.numGhosts):
-                newPosDict = self.getPositionDistribution(gameState, oldParticle, i, self.ghostAgents[i])
+                newPosDict = self.getPositionDistribution(gameState, newParticle, i, self.ghostAgents[i])
+                # set the newParticle @ the iterator over ghosts to the sampled
                 newParticle[i] = newPosDict.sample()
             """*** END YOUR CODE HERE ***"""
             newParticles.append(tuple(newParticle))
