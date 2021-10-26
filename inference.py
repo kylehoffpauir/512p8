@@ -452,17 +452,14 @@ class JointParticleFilter(ParticleFilter):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
-        permutations = itertools.product(self.legalPositions, repeat = self.numGhosts)
+        permutations = list(itertools.product(self.legalPositions, repeat = self.numGhosts))
         random.shuffle(permutations)
         # each particle is now a tuple of sampled ghost positions
-        particlesPerTile = self.numParticles // len(self.legalPositions)
-        tempParticles = self.numParticles
-        for i in len(permutations):
-            if tempParticles < 0:
-                break
-            for ppt in range(particlesPerTile):
-                self.particles.append(permutations[i])
-                tempParticles -= 1
+        i = self.numParticles
+        while i > 0:
+            for ppt in permutations:
+                self.particles.append(ppt)
+                i -= 1
 
     def addGhostAgent(self, agent):
         """
@@ -495,7 +492,24 @@ class JointParticleFilter(ParticleFilter):
         the DiscreteDistribution may be useful.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        update = DiscreteDistribution()
+        for particlePos in self.particles:
+            # calculate the probabilty of every particle and add it to our updated dist
+            prob = 1
+            for i in range(self.numGhosts):
+                prob *= self.getObservationProb(observation[i], gameState.getPacmanPosition(), particlePos[i] , self.getJailPosition(i))
+            # using += will store sum of repeated particle weights in the distribution
+            update[particlePos] += prob
+        # special case -- if all particles get 0 weight then initializeUniformly
+        if update.total() == 0:
+            self.initializeUniformly(gameState)
+        # normalize our update distribution and modify beliefs
+        else:
+            self.beliefs = update.normalize()
+            # resample every particle ( with replacement ) and change the particles we store to resampled ones
+            for i in range(len(self.particles)):
+                self.particles[i] = update.sample()
+
 
     def elapseTime(self, gameState):
         """
@@ -508,8 +522,9 @@ class JointParticleFilter(ParticleFilter):
 
             # now loop through and update each entry in newParticle...
             "*** YOUR CODE HERE ***"
-            raiseNotDefined()
-
+            for i in range(self.numGhosts):
+                newPosDict = self.getPositionDistribution(gameState, oldParticle, i, self.ghostAgents[i])
+                newParticle[i] = newPosDict.sample()
             """*** END YOUR CODE HERE ***"""
             newParticles.append(tuple(newParticle))
         self.particles = newParticles
